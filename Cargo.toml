@@ -1,0 +1,15 @@
+[package]
+name = "guardians-of-the-types"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+oxc_allocator = "0.2.0"
+oxc_ast = { version = "0.2.0", features = ["serde"] }
+oxc_diagnostics = "0.2.0"
+oxc_parser = "0.2.0"
+oxc_semantic = "0.2.0"
+oxc_span = { version = "0.2.0", features = ["serde"] }
+serde_json = "1.0.107"
