@@ -213,7 +213,10 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::TSTypeOperatorType(_) => todo!(),
             TSType::TSTypePredicate(_) => todo!(),
             TSType::TSTypeQuery(_) => todo!(),
-            TSType::TSTypeReference(_) => todo!(),
+            TSType::TSTypeReference(it) => match &it.type_name {
+                TSTypeName::IdentifierReference(it) => format!("is{}({left})", it.name),
+                TSTypeName::QualifiedName(_) => todo!(),
+            },
             TSType::TSUnionType(it) => it.check_code(left),
             TSType::JSDocNullableType(_) => todo!(),
             TSType::JSDocUnknownType(_) => todo!(),

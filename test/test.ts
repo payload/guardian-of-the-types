@@ -14,7 +14,7 @@ export interface Bar {
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-// export type FooOrBar = Foo | Bar;
+export type FooOrBar = Foo | Bar;
 
 // export interface Foobar {
 //     foo: Foo;
