@@ -6,11 +6,11 @@
 //     muchMore: any,
 // }
 
-// export interface Bar {
-//     name: 'bar';
-//     list: number[];
-//     maybesomething: 'something' | 'nothing';
-// }
+export interface Bar {
+    name: 'bar';
+    list: number[];
+    maybesomething: 'something' | 'nothing';
+}
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 

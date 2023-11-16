@@ -5,8 +5,8 @@ use oxc_allocator::Allocator;
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 
-mod parse_exports;
 mod guardians;
+mod parse_exports;
 
 fn main() {
     let name = env::args()
@@ -32,10 +32,10 @@ fn main() {
     println!(
         "export {{ {} }} from \"test/test.ts\"",
         exports
-        .into_iter()
-        .map(|it| it.to_string())
-        .collect::<Vec<_>>()
-        .join(", ")
+            .into_iter()
+            .map(|it| it.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
     );
 
     let guardians = guardians::Guardians::new().parse(program);

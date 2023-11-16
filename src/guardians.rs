@@ -1,8 +1,6 @@
-use std::{fmt::Display, marker::PhantomData};
+use std::marker::PhantomData;
 
 use oxc_ast::{ast::*, Visit};
-
-use oxc_span::Atom;
 
 use crate::parse_exports;
 
@@ -63,22 +61,19 @@ impl<'a> Visit<'a> for Guardians<'a> {
         }
         if let Some(ref it) = decl.declaration {
             match it {
-                Declaration::VariableDeclaration(it) => {
-                    todo!();
-                }
+                Declaration::VariableDeclaration(_) => todo!(),
                 it => {
                     if let Some(name) = parse_exports::name_of_single_decl(it) {
                         println!("{name:16} {:32}", it.debug_name());
                         if let Declaration::TSTypeAliasDeclaration(it) = it {
-                            let guardian = self.guard_type(&name, &it.type_annotation);
-                            self.guardians.push(guardian);
+                            self.guardians
+                                .push(self.guard_type(&name, &it.type_annotation));
+                        } else if let Declaration::TSInterfaceDeclaration(it) = it {
+                            self.guardians.push(self.guard_interface(&name, it));
                         }
                     }
                 }
             }
-        }
-        for spec in decl.specifiers.iter() {
-            todo!();
         }
     }
 
@@ -92,6 +87,27 @@ impl<'a> Visit<'a> for Guardians<'a> {
 }
 
 impl<'a> Guardians<'a> {
+    fn guard_interface(&self, name: &str, it: &TSInterfaceDeclaration) -> Guardian {
+        let checks: Vec<_> = it
+            .body
+            .body
+            .iter()
+            .map(|it| match it {
+                TSSignature::TSIndexSignature(_) => todo!(),
+                TSSignature::TSPropertySignature(it) => it.check_code("it"),
+                TSSignature::TSCallSignatureDeclaration(_) => todo!(),
+                TSSignature::TSConstructSignatureDeclaration(_) => todo!(),
+                TSSignature::TSMethodSignature(_) => todo!(),
+            })
+            .map(|it| format!("({it})"))
+            .collect();
+        let check_code = checks.join(" && ");
+        Guardian {
+            typename: name.into(),
+            check_code,
+        }
+    }
+
     fn guard_type(&self, name: &str, it: &TSType) -> Guardian {
         match it {
             TSType::TSAnyKeyword(_) => todo!(),
@@ -125,7 +141,7 @@ impl<'a> Guardians<'a> {
             TSType::TSTypePredicate(_) => todo!(),
             TSType::TSTypeQuery(_) => todo!(),
             TSType::TSTypeReference(_) => todo!(),
-            TSType::TSUnionType(it) => Guardian::new(&name, it.check_code()),
+            TSType::TSUnionType(it) => Guardian::new(name, it.check_code("it")),
             TSType::JSDocNullableType(_) => todo!(),
             TSType::JSDocUnknownType(_) => todo!(),
         }
@@ -133,29 +149,43 @@ impl<'a> Guardians<'a> {
 }
 
 trait CheckCode {
-    fn check_code(&self) -> String;
+    fn check_code(&self, left: &str) -> String;
+}
+
+impl<'a> CheckCode for TSPropertySignature<'a> {
+    fn check_code(&self, left: &str) -> String {
+        let key = match &self.key {
+            PropertyKey::Identifier(it) => it.name.as_str(),
+            PropertyKey::PrivateIdentifier(_) => todo!(),
+            PropertyKey::Expression(_) => todo!(),
+        };
+        let Some(it) = &self.type_annotation else {
+            todo!()
+        };
+        it.type_annotation.check_code(&format!("{left}.{key}"))
+    }
 }
 
 impl<'a> CheckCode for TSUnionType<'a> {
-    fn check_code(&self) -> String {
+    fn check_code(&self, left: &str) -> String {
         let checks = self
             .types
             .iter()
-            .map(|t| t.check_code())
+            .map(|t| t.check_code(left))
             .collect::<Vec<_>>();
         checks.join(" || ")
     }
 }
 
 impl<'a> CheckCode for TSType<'a> {
-    fn check_code(&self) -> String {
+    fn check_code(&self, left: &str) -> String {
         match self {
             TSType::TSAnyKeyword(_) => todo!(),
             TSType::TSBigIntKeyword(_) => todo!(),
             TSType::TSBooleanKeyword(_) => todo!(),
             TSType::TSNeverKeyword(_) => todo!(),
             TSType::TSNullKeyword(_) => todo!(),
-            TSType::TSNumberKeyword(_) => todo!(),
+            TSType::TSNumberKeyword(it) => it.check_code(left),
             TSType::TSObjectKeyword(_) => todo!(),
             TSType::TSStringKeyword(_) => todo!(),
             TSType::TSSymbolKeyword(_) => todo!(),
@@ -163,7 +193,7 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::TSUndefinedKeyword(_) => todo!(),
             TSType::TSUnknownKeyword(_) => todo!(),
             TSType::TSVoidKeyword(_) => todo!(),
-            TSType::TSArrayType(_) => todo!(),
+            TSType::TSArrayType(it) => it.check_code(left),
             TSType::TSConditionalType(_) => todo!(),
             TSType::TSConstructorType(_) => todo!(),
             TSType::TSFunctionType(_) => todo!(),
@@ -171,7 +201,7 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::TSIndexedAccessType(_) => todo!(),
             TSType::TSInferType(_) => todo!(),
             TSType::TSIntersectionType(_) => todo!(),
-            TSType::TSLiteralType(it) => it.literal.check_code(),
+            TSType::TSLiteralType(it) => it.literal.check_code(left),
             TSType::TSMappedType(_) => todo!(),
             TSType::TSQualifiedName(_) => todo!(),
             TSType::TSTemplateLiteralType(_) => todo!(),
@@ -181,28 +211,41 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::TSTypePredicate(_) => todo!(),
             TSType::TSTypeQuery(_) => todo!(),
             TSType::TSTypeReference(_) => todo!(),
-            TSType::TSUnionType(_) => todo!(),
+            TSType::TSUnionType(it) => it.check_code(left),
             TSType::JSDocNullableType(_) => todo!(),
             TSType::JSDocUnknownType(_) => todo!(),
         }
     }
 }
 
+impl CheckCode for TSNumberKeyword {
+    fn check_code(&self, left: &str) -> String {
+        format!("typeof {left} === 'number'")
+    }
+}
+
+impl<'a> CheckCode for TSArrayType<'a> {
+    fn check_code(&self, left: &str) -> String {
+        let check_element = self.element_type.check_code("b");
+        format!("Array.isArray({left}) && {left}.reduce((a, b) => ({check_element}), true)")
+    }
+}
+
 impl<'a> CheckCode for TSLiteral<'a> {
-    fn check_code(&self) -> String {
+    fn check_code(&self, left: &str) -> String {
         match self {
             TSLiteral::BooleanLiteral(it) => {
                 if it.value {
-                    format!("it === true")
+                    format!("{left} === true")
                 } else {
-                    format!("it === false")
+                    format!("{left} === false")
                 }
             }
             TSLiteral::NullLiteral(_) => todo!(),
             TSLiteral::NumberLiteral(_) => todo!(),
             TSLiteral::BigintLiteral(_) => todo!(),
             TSLiteral::RegExpLiteral(_) => todo!(),
-            TSLiteral::StringLiteral(it) => format!("it === '{}'", it.value),
+            TSLiteral::StringLiteral(it) => format!("{left} === '{}'", it.value),
             TSLiteral::TemplateLiteral(_) => todo!(),
             TSLiteral::UnaryExpression(_) => todo!(),
         }
@@ -216,7 +259,7 @@ trait DebugName {
 impl<T: std::fmt::Debug> DebugName for T {
     fn debug_name(&self) -> String {
         let debug = format!("{self:?}");
-        if let Some((name, _)) = debug.split_once(&[' ', '(', '{', '[']) {
+        if let Some((name, _)) = debug.split_once([' ', '(', '{', '[']) {
             name.to_string()
         } else {
             debug
