@@ -162,7 +162,10 @@ impl<'a> CheckCode for TSPropertySignature<'a> {
         let Some(it) = &self.type_annotation else {
             todo!()
         };
-        it.type_annotation.check_code(&format!("{left}.{key}"))
+        match &it.type_annotation {
+            TSType::TSAnyKeyword(_) => format!("'{key}' in {left}"),
+            it => it.check_code(&format!("{left}.{key}")),
+        }
     }
 }
 
@@ -185,9 +188,9 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::TSBooleanKeyword(_) => todo!(),
             TSType::TSNeverKeyword(_) => todo!(),
             TSType::TSNullKeyword(_) => todo!(),
-            TSType::TSNumberKeyword(it) => it.check_code(left),
-            TSType::TSObjectKeyword(_) => todo!(),
-            TSType::TSStringKeyword(_) => todo!(),
+            TSType::TSNumberKeyword(_) => format!("typeof {left} === 'number'"),
+            TSType::TSObjectKeyword(_) => format!("typeof {left} === 'object'"),
+            TSType::TSStringKeyword(_) => format!("typeof {left} === 'string'"),
             TSType::TSSymbolKeyword(_) => todo!(),
             TSType::TSThisKeyword(_) => todo!(),
             TSType::TSUndefinedKeyword(_) => todo!(),
@@ -215,12 +218,6 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::JSDocNullableType(_) => todo!(),
             TSType::JSDocUnknownType(_) => todo!(),
         }
-    }
-}
-
-impl CheckCode for TSNumberKeyword {
-    fn check_code(&self, left: &str) -> String {
-        format!("typeof {left} === 'number'")
     }
 }
 

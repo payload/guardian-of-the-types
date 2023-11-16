@@ -1,10 +1,10 @@
-// export interface Foo {
-//     name: 'foo';
-//     value: string;
-//     amount?: number;
-//     more: object,
-//     muchMore: any,
-// }
+export interface Foo {
+    name: 'foo';
+    value: string;
+    amount?: number;
+    more: object,
+    muchMore: any,
+}
 
 export interface Bar {
     name: 'bar';
