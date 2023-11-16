@@ -73,7 +73,7 @@ impl<'a> Visit<'a> for ParseExports<'a> {
     }
 }
 
-fn name_of_single_decl(it: &Declaration) -> Option<Atom> {
+pub fn name_of_single_decl(it: &Declaration) -> Option<Atom> {
     match it {
         Declaration::FunctionDeclaration(it) => name_of_some_binding(it.id.as_ref()),
         Declaration::ClassDeclaration(it) => name_of_some_binding(it.id.as_ref()),
