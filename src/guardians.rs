@@ -143,7 +143,7 @@ impl<'a> CheckCode for TSUnionType<'a> {
             .iter()
             .map(|t| t.check_code())
             .collect::<Vec<_>>();
-        checks.join(" && ")
+        checks.join(" || ")
     }
 }
 
