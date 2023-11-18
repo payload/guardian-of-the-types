@@ -64,7 +64,6 @@ impl<'a> Visit<'a> for Guardians<'a> {
                 Declaration::VariableDeclaration(_) => todo!(),
                 it => {
                     if let Some(name) = parse_exports::name_of_single_decl(it) {
-                        println!("{name:16} {:32}", it.debug_name());
                         if let Declaration::TSTypeAliasDeclaration(it) = it {
                             self.guardians
                                 .push(self.guard_type(&name, &it.type_annotation));
@@ -101,7 +100,10 @@ impl<'a> Guardians<'a> {
             })
             .map(|it| format!("({it})"))
             .collect();
-        let check_code = checks.join(" && ");
+        let check_code = format!(
+            "it && typeof it === 'object' &&\n\t{}",
+            checks.join(" &&\n\t")
+        );
         Guardian {
             typename: name.into(),
             check_code,
@@ -150,6 +152,17 @@ impl<'a> Guardians<'a> {
 
 trait CheckCode {
     fn check_code(&self, left: &str) -> String;
+}
+
+impl<'a> CheckCode for TSIndexSignature<'a> {
+    fn check_code(&self, left: &str) -> String {
+        assert_eq!(self.parameters.len(), 1);
+        let p = &self.parameters[0];
+        let pname = &p.name;
+        let paccessor = format!("{left}[{pname}]");
+        let pcheck = p.type_annotation.type_annotation.check_code(&paccessor);
+        format!("Object.entries({left}).reduce((a, ([{pname}, v]) => ({pcheck}), true)")
+    }
 }
 
 impl<'a> CheckCode for TSPropertySignature<'a> {
@@ -209,7 +222,7 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::TSQualifiedName(_) => todo!(),
             TSType::TSTemplateLiteralType(_) => todo!(),
             TSType::TSTupleType(_) => todo!(),
-            TSType::TSTypeLiteral(_) => todo!(),
+            TSType::TSTypeLiteral(it) => it.check_code(left),
             TSType::TSTypeOperatorType(_) => todo!(),
             TSType::TSTypePredicate(_) => todo!(),
             TSType::TSTypeQuery(_) => todo!(),
@@ -221,6 +234,23 @@ impl<'a> CheckCode for TSType<'a> {
             TSType::JSDocNullableType(_) => todo!(),
             TSType::JSDocUnknownType(_) => todo!(),
         }
+    }
+}
+
+impl<'a> CheckCode for TSTypeLiteral<'a> {
+    fn check_code(&self, left: &str) -> String {
+        let checks: Vec<_> = self
+            .members
+            .iter()
+            .map(|it| match it {
+                TSSignature::TSIndexSignature(it) => it.check_code(left),
+                TSSignature::TSPropertySignature(it) => it.check_code(left),
+                TSSignature::TSCallSignatureDeclaration(_) => todo!(),
+                TSSignature::TSConstructSignatureDeclaration(_) => todo!(),
+                TSSignature::TSMethodSignature(_) => todo!(),
+            })
+            .collect();
+        checks.join(" : ")
     }
 }
 

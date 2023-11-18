@@ -16,17 +16,17 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 
 export type FooOrBar = Foo | Bar;
 
-// export interface Foobar {
-//     foo: Foo;
-//     bar: Bar;
-//     extras?: {[key: string]: string},
-//     names?: string[],
-//     direction: Direction,
-//     directions: Direction[],
-//     numbers?: number[],
-//     parts: PrivateInterface,
-// }
+export interface Foobar {
+    foo: Foo;
+    bar: Bar;
+    extras?: {[key: string]: string},
+    names?: string[],
+    direction: Direction,
+    directions: Direction[],
+    numbers?: number[],
+    parts: PrivateInterface,
+}
 
-// interface PrivateInterface {
-//     top: 'secret'
-// }
+interface PrivateInterface {
+    top: 'secret'
+}

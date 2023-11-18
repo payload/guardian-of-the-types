@@ -27,19 +27,14 @@ fn main() {
     }
 
     let program = allocator.alloc(ret.program);
-    let exports = parse_exports::ParseExports::new().parse(program);
 
-    println!(
-        "export {{ {} }} from \"test/test.ts\"",
-        exports
-            .into_iter()
-            .map(|it| it.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    let exports = parse_exports::ParseExports::new().parse(program);
+    let exports: Vec<_> = exports.into_iter().map(|e| e.to_string()).collect();
+    let exports = exports.join(", ");
+
+    println!("import {{{exports}}} from './{name}';\n");
 
     let guardians = guardians::Guardians::new().parse(program);
-    println!("\nGuardians:\n");
     for guardian in guardians {
         println!("{guardian}");
     }
