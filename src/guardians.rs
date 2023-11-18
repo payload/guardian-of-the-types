@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use oxc_ast::{ast::*, Visit};
 
-use crate::parse_exports;
+use crate::parse_exports::{self, name_of_single_decl};
 
 pub struct Guardians<'a> {
     lifetime: PhantomData<&'a ()>,
@@ -59,20 +59,20 @@ impl<'a> Visit<'a> for Guardians<'a> {
         if decl.declaration.is_some() && !decl.specifiers.is_empty() {
             todo!("conflict 1");
         }
-        if let Some(ref it) = decl.declaration {
-            match it {
-                Declaration::VariableDeclaration(_) => todo!(),
-                it => {
-                    if let Some(name) = parse_exports::name_of_single_decl(it) {
-                        if let Declaration::TSTypeAliasDeclaration(it) = it {
-                            self.guardians
-                                .push(self.guard_type(&name, &it.type_annotation));
-                        } else if let Declaration::TSInterfaceDeclaration(it) = it {
-                            self.guardians.push(self.guard_interface(&name, it));
-                        }
-                    }
-                }
+        let Some(ref it) = decl.declaration else {
+            return;
+        };
+        match it {
+            Declaration::TSTypeAliasDeclaration(it) => self.guardians.push(self.guard_type(it)),
+            Declaration::TSInterfaceDeclaration(it) => {
+                self.guardians.push(self.guard_interface(it))
             }
+            Declaration::VariableDeclaration(_) => todo!(),
+            Declaration::FunctionDeclaration(_) => todo!(),
+            Declaration::ClassDeclaration(_) => todo!(),
+            Declaration::TSEnumDeclaration(_) => todo!(),
+            Declaration::TSModuleDeclaration(_) => todo!(),
+            Declaration::TSImportEqualsDeclaration(_) => todo!(),
         }
     }
 
@@ -86,66 +86,28 @@ impl<'a> Visit<'a> for Guardians<'a> {
 }
 
 impl<'a> Guardians<'a> {
-    fn guard_interface(&self, name: &str, it: &TSInterfaceDeclaration) -> Guardian {
-        let checks: Vec<_> = it
-            .body
-            .body
+    fn guard_interface(&self, it: &TSInterfaceDeclaration) -> Guardian {
+        let name = it.id.name.clone();
+        let body = &it.body.body;
+        let checks: Vec<_> = body
             .iter()
-            .map(|it| match it {
-                TSSignature::TSIndexSignature(_) => todo!(),
-                TSSignature::TSPropertySignature(it) => it.check_code("it"),
-                TSSignature::TSCallSignatureDeclaration(_) => todo!(),
-                TSSignature::TSConstructSignatureDeclaration(_) => todo!(),
-                TSSignature::TSMethodSignature(_) => todo!(),
-            })
-            .map(|it| format!("({it})"))
+            .map(|it| it.check_code("it"))
             .collect();
         let check_code = format!(
             "it && typeof it === 'object' &&\n\t{}",
             checks.join(" &&\n\t")
         );
         Guardian {
-            typename: name.into(),
+            typename: name.to_string(),
             check_code,
         }
     }
 
-    fn guard_type(&self, name: &str, it: &TSType) -> Guardian {
-        match it {
-            TSType::TSAnyKeyword(_) => todo!(),
-            TSType::TSBigIntKeyword(_) => todo!(),
-            TSType::TSBooleanKeyword(_) => todo!(),
-            TSType::TSNeverKeyword(_) => todo!(),
-            TSType::TSNullKeyword(_) => todo!(),
-            TSType::TSNumberKeyword(_) => todo!(),
-            TSType::TSObjectKeyword(_) => todo!(),
-            TSType::TSStringKeyword(_) => todo!(),
-            TSType::TSSymbolKeyword(_) => todo!(),
-            TSType::TSThisKeyword(_) => todo!(),
-            TSType::TSUndefinedKeyword(_) => todo!(),
-            TSType::TSUnknownKeyword(_) => todo!(),
-            TSType::TSVoidKeyword(_) => todo!(),
-            TSType::TSArrayType(_) => todo!(),
-            TSType::TSConditionalType(_) => todo!(),
-            TSType::TSConstructorType(_) => todo!(),
-            TSType::TSFunctionType(_) => todo!(),
-            TSType::TSImportType(_) => todo!(),
-            TSType::TSIndexedAccessType(_) => todo!(),
-            TSType::TSInferType(_) => todo!(),
-            TSType::TSIntersectionType(_) => todo!(),
-            TSType::TSLiteralType(_) => todo!(),
-            TSType::TSMappedType(_) => todo!(),
-            TSType::TSQualifiedName(_) => todo!(),
-            TSType::TSTemplateLiteralType(_) => todo!(),
-            TSType::TSTupleType(_) => todo!(),
-            TSType::TSTypeLiteral(_) => todo!(),
-            TSType::TSTypeOperatorType(_) => todo!(),
-            TSType::TSTypePredicate(_) => todo!(),
-            TSType::TSTypeQuery(_) => todo!(),
-            TSType::TSTypeReference(_) => todo!(),
-            TSType::TSUnionType(it) => Guardian::new(name, it.check_code("it")),
-            TSType::JSDocNullableType(_) => todo!(),
-            TSType::JSDocUnknownType(_) => todo!(),
+    fn guard_type(&self, it: &TSTypeAliasDeclaration) -> Guardian {
+        let name = it.id.name.clone();
+        match &it.type_annotation {
+            TSType::TSUnionType(it) => Guardian::new(&name, it.check_code("it")),
+            _ => todo!(),
         }
     }
 }
@@ -189,7 +151,11 @@ impl<'a> CheckCode for TSUnionType<'a> {
             .iter()
             .map(|t| t.check_code(left))
             .collect::<Vec<_>>();
-        checks.join(" || ")
+        if checks.len() > 1 {
+            format!("({})", checks.join(" || "))
+        } else {
+            checks.join("")
+        }
     }
 }
 
@@ -239,25 +205,27 @@ impl<'a> CheckCode for TSType<'a> {
 
 impl<'a> CheckCode for TSTypeLiteral<'a> {
     fn check_code(&self, left: &str) -> String {
-        let checks: Vec<_> = self
-            .members
-            .iter()
-            .map(|it| match it {
-                TSSignature::TSIndexSignature(it) => it.check_code(left),
-                TSSignature::TSPropertySignature(it) => it.check_code(left),
-                TSSignature::TSCallSignatureDeclaration(_) => todo!(),
-                TSSignature::TSConstructSignatureDeclaration(_) => todo!(),
-                TSSignature::TSMethodSignature(_) => todo!(),
-            })
-            .collect();
+        let checks: Vec<_> = self.members.iter().map(|it| it.check_code(left)).collect();
         checks.join(" : ")
+    }
+}
+
+impl<'a> CheckCode for TSSignature<'a> {
+    fn check_code(&self, left: &str) -> String {
+        match self {
+            TSSignature::TSIndexSignature(it) => it.check_code(left),
+            TSSignature::TSPropertySignature(it) => it.check_code(left),
+            TSSignature::TSCallSignatureDeclaration(_) => todo!(),
+            TSSignature::TSConstructSignatureDeclaration(_) => todo!(),
+            TSSignature::TSMethodSignature(_) => todo!(),
+        }
     }
 }
 
 impl<'a> CheckCode for TSArrayType<'a> {
     fn check_code(&self, left: &str) -> String {
         let check_element = self.element_type.check_code("b");
-        format!("Array.isArray({left}) && {left}.reduce((a, b) => ({check_element}), true)")
+        format!("(Array.isArray({left}) && {left}.reduce((a, b) => ({check_element}), true))")
     }
 }
 
