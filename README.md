@@ -8,7 +8,7 @@ Meanwhile this is a skeleton of OXC typescript parser code to generate type guar
 
 `cargo run` will guard `test/test.ts` and you can inspect the console output.
 
-<style>
+<!--<style>
 #title {
   text-align:center;
 }
@@ -32,4 +32,4 @@ Meanwhile this is a skeleton of OXC typescript parser code to generate type guar
   vertical-align: top;
   line-height:1em;
 }
-</style>
+</style>-->
